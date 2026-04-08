@@ -1,0 +1,137 @@
+.page {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  padding: 28px 16px 72px;
+}
+
+.main {
+  display: flex;
+  width: 100%;
+  max-width: 1240px;
+  gap: 28px;
+  align-items: flex-start;
+}
+
+.copyColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  flex: 1.1;
+  padding: 40px 0 16px;
+}
+
+.copyColumn h1 {
+  max-width: 14ch;
+  font-size: clamp(3rem, 6vw, 6rem);
+  line-height: 0.96;
+  letter-spacing: -0.07em;
+}
+
+.summary {
+  max-width: 60ch;
+  color: var(--muted);
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+
+.kicker {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.promiseStrip {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.promiseStrip div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-left: 3px solid rgba(32, 26, 21, 0.16);
+  padding-left: 16px;
+}
+
+.promiseStrip span {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.curriculumPanel {
+  display: grid;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.curriculumLabel {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.curriculumList {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.curriculumItem {
+  display: grid;
+  gap: 10px;
+  min-height: 220px;
+  padding: 20px;
+  border-radius: 24px;
+  border: 1px solid rgba(28, 23, 18, 0.12);
+  background: rgba(255, 255, 255, 0.66);
+  box-shadow: 0 20px 50px rgba(26, 20, 15, 0.05);
+}
+
+.curriculumItem p,
+.curriculumItem small {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.formColumn {
+  width: min(100%, 480px);
+  position: sticky;
+  top: 24px;
+}
+
+.formIntro {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 960px) {
+  .main {
+    flex-direction: column;
+  }
+
+  .curriculumList {
+    grid-template-columns: 1fr;
+  }
+
+  .formColumn {
+    position: static;
+    width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding: 18px 12px 48px;
+  }
+
+  .copyColumn {
+    padding-top: 12px;
+  }
+}
