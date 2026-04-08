@@ -12,6 +12,7 @@ type UploadedAsset = {
   format: string;
   bytes: number;
   originalFilename: string;
+  durationSeconds: number | null;
 };
 
 type SignaturePayload = {
@@ -30,10 +31,12 @@ type CloudinaryUploaderProps = {
   description: string;
   resourceType?: CloudinaryResourceType;
   allowResourceTypeSelection?: boolean;
+  allowRawSelection?: boolean;
   urlFieldName?: string;
   publicIdFieldName?: string;
   resourceTypeFieldName?: string;
   formatFieldName?: string;
+  onUpload?: (asset: UploadedAsset) => void;
 };
 
 function getAcceptValue(resourceType: CloudinaryResourceType) {
@@ -48,6 +51,7 @@ function getAcceptValue(resourceType: CloudinaryResourceType) {
 }
 
 export function CloudinaryUploader({
+  allowRawSelection = false,
   allowResourceTypeSelection = false,
   description,
   formatFieldName,
@@ -56,6 +60,7 @@ export function CloudinaryUploader({
   resourceTypeFieldName,
   title,
   urlFieldName,
+  onUpload,
 }: CloudinaryUploaderProps) {
   const inputId = useId();
   const [asset, setAsset] = useState<UploadedAsset | null>(null);
@@ -115,6 +120,7 @@ export function CloudinaryUploader({
           public_id?: string;
           resource_type?: CloudinaryResourceType;
           secure_url?: string;
+          duration?: number;
           error?: { message?: string };
         }
       | null;
@@ -130,6 +136,10 @@ export function CloudinaryUploader({
       publicId: uploadPayload.public_id,
       resourceType: uploadPayload.resource_type ?? currentResourceType,
       secureUrl: uploadPayload.secure_url,
+      durationSeconds:
+        typeof uploadPayload.duration === "number"
+          ? Math.max(1, Math.round(uploadPayload.duration))
+          : null,
     } satisfies UploadedAsset;
   }
 
@@ -142,12 +152,13 @@ export function CloudinaryUploader({
     setIsUploading(true);
     setError(null);
 
-    try {
-      const nextAsset = await uploadToCloudinary(file, selectedResourceType);
+      try {
+        const nextAsset = await uploadToCloudinary(file, selectedResourceType);
 
-      startTransition(() => {
-        setAsset(nextAsset);
-      });
+        startTransition(() => {
+          setAsset(nextAsset);
+          onUpload?.(nextAsset);
+        });
     } catch (uploadError) {
       startTransition(() => {
         setAsset(null);
@@ -182,7 +193,7 @@ export function CloudinaryUploader({
             >
               <option value="image">Image</option>
               <option value="video">Video</option>
-              <option value="raw">Other file</option>
+              {allowRawSelection ? <option value="raw">Other file</option> : null}
             </select>
           </label>
         ) : null}

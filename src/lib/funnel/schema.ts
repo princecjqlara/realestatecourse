@@ -26,19 +26,9 @@ export const leadFormSchema = z.object({
     .refine((value) => value.replace(/\D/g, "").length >= 7, {
       message: "Please enter a valid phone number.",
     }),
-  companies: z
-    .string()
-    .transform(splitListField)
-    .refine((value) => value.length > 0, {
-      message: "Please add at least one company.",
-    }),
-  propertyTypes: z
-    .string()
-    .transform(splitListField)
-    .refine((value) => value.length > 0, {
-      message: "Please add at least one property type.",
-    }),
-  salesFocus: z.string().trim().min(2, "Tell us what you sell."),
+  companies: z.string().optional().default("").transform(splitListField),
+  propertyTypes: z.string().optional().default("").transform(splitListField),
+  salesFocus: z.string().optional().default("").transform((value) => value.trim()),
 });
 
 export type LeadFormInput = z.input<typeof leadFormSchema>;

@@ -172,6 +172,58 @@ main {
   gap: 20px;
 }
 
+.stepHeader {
+  display: grid;
+  gap: 10px;
+}
+
+.stepIndicator {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.stepProgressTrack {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(28, 23, 18, 0.08);
+  overflow: hidden;
+}
+
+.stepProgressFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #b6491f, #201a15);
+}
+
+.stepFields {
+  display: grid;
+  gap: 12px;
+}
+
+.wizardField {
+  min-height: 146px;
+}
+
+.activeWizardField {
+  display: grid;
+}
+
+.hiddenWizardField {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.wizardError {
+  color: var(--error);
+}
+
 .fieldGrid {
   display: grid;
   gap: 16px;
@@ -224,6 +276,13 @@ main {
   gap: 16px;
 }
 
+.wizardActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .helperText {
   color: var(--muted);
   max-width: 48ch;
@@ -264,6 +323,11 @@ main {
   width: 100%;
   border-radius: 20px;
   background: #0d0d0d;
+}
+
+.videoActionBar {
+  display: flex;
+  justify-content: flex-start;
 }
 
 .sidebarPanel {
@@ -505,6 +569,10 @@ main {
   .buttonPrimary,
   .buttonSecondary,
   .buttonGhost {
+    width: 100%;
+  }
+
+  .wizardActions {
     width: 100%;
   }
 }

@@ -128,8 +128,6 @@ export default async function AdminDashboardPage() {
               <th>Lead</th>
               <th>Phone</th>
               <th>Company</th>
-              <th>Property types</th>
-              <th>Sales focus</th>
               <th>Watch time</th>
               <th>Views</th>
               <th>Resume logins</th>
@@ -148,8 +146,6 @@ export default async function AdminDashboardPage() {
                   </td>
                   <td>{lead.phone}</td>
                   <td>{lead.companies.join(", ")}</td>
-                  <td>{lead.propertyTypes.join(", ")}</td>
-                  <td>{lead.salesFocus}</td>
                   <td>{formatSeconds(leadSummary?.totalWatchSeconds ?? 0)}</td>
                   <td>{leadSummary?.totalViews ?? 0}</td>
                   <td>{leadSummary?.resumeLogins ?? 0}</td>

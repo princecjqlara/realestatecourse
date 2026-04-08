@@ -2,16 +2,21 @@ import type { FunnelDatabase } from "./types";
 
 const sampleVideoUrl =
   "https://res.cloudinary.com/demo/video/upload/docs/walking_tour.mp4";
+const sampleThumbnailUrl =
+  "https://res.cloudinary.com/demo/video/upload/so_3/docs/walking_tour.jpg";
 
 export const defaultDatabase: FunnelDatabase = {
   course: {
     id: "facebook-ads-masterclass",
     title: "Facebook Ads Home Seller Funnel",
     subtitle: "Free course for agents, teams, and property marketers",
-    heroTitle: "Get the free Facebook Ads course that shows how to turn clicks into property leads.",
+    heroTitle: "Aralin kung paano kumuha ng mas quality na real estate leads gamit ang Facebook Ads.",
     heroSummary:
-      "This funnel is built for companies selling property, listings, and real estate services that need stronger lead quality from Meta campaigns.",
-    ctaLabel: "Unlock the course",
+      "Free Taglish course ito para sa agents, brokers, at real estate teams na gustong gawing mas qualified ang leads mula Meta campaigns.",
+    ctaLabel: "Kunin ang free course",
+    previewMediaType: "image",
+    previewThumbnailUrl: sampleThumbnailUrl,
+    previewVideoUrl: sampleVideoUrl,
   },
   topics: [
     {
@@ -42,6 +47,7 @@ export const defaultDatabase: FunnelDatabase = {
       position: 1,
       durationSeconds: 320,
       videoUrl: sampleVideoUrl,
+      buttons: [],
     },
     {
       id: "lesson-audience",
@@ -51,6 +57,7 @@ export const defaultDatabase: FunnelDatabase = {
       position: 2,
       durationSeconds: 280,
       videoUrl: sampleVideoUrl,
+      buttons: [],
     },
     {
       id: "lesson-creative-system",
@@ -60,6 +67,7 @@ export const defaultDatabase: FunnelDatabase = {
       position: 1,
       durationSeconds: 360,
       videoUrl: sampleVideoUrl,
+      buttons: [],
     },
     {
       id: "lesson-follow-up",
@@ -69,6 +77,7 @@ export const defaultDatabase: FunnelDatabase = {
       position: 1,
       durationSeconds: 300,
       videoUrl: sampleVideoUrl,
+      buttons: [],
     },
   ],
   leads: [],

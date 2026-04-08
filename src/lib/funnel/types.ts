@@ -1,3 +1,6 @@
+import type { CoursePreviewMediaType } from "./course-preview-media";
+import type { SubtopicButton } from "./subtopic-buttons";
+
 export type LeadAttribution = {
   utmSource: string | null;
   utmMedium: string | null;
@@ -14,6 +17,9 @@ export type CourseMeta = {
   heroTitle: string;
   heroSummary: string;
   ctaLabel: string;
+  previewMediaType: CoursePreviewMediaType;
+  previewThumbnailUrl: string;
+  previewVideoUrl: string;
 };
 
 export type TopicRecord = {
@@ -31,6 +37,7 @@ export type SubtopicRecord = {
   position: number;
   durationSeconds: number;
   videoUrl: string;
+  buttons: SubtopicButton[];
 };
 
 export type LeadRecord = {

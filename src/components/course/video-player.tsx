@@ -2,14 +2,17 @@
 
 import { useEffect, useEffectEvent, useRef } from "react";
 
+import type { SubtopicButton } from "@/lib/funnel/subtopic-buttons";
+
 type VideoPlayerProps = {
+  buttons?: SubtopicButton[];
   subtopicId: string;
   title: string;
   summary: string;
   videoUrl: string;
 };
 
-export function VideoPlayer({ subtopicId, title, summary, videoUrl }: VideoPlayerProps) {
+export function VideoPlayer({ buttons = [], subtopicId, title, summary, videoUrl }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pendingSecondsRef = useRef(0);
   const lastTimestampRef = useRef(0);
@@ -123,6 +126,16 @@ export function VideoPlayer({ subtopicId, title, summary, videoUrl }: VideoPlaye
       </div>
 
       <video className="videoElement" controls preload="metadata" ref={videoRef} src={videoUrl} />
+
+      {buttons.length > 0 ? (
+        <div className="videoActionBar">
+          {buttons.map((button) => (
+            <a className="buttonPrimary" href={button.url} key={`${button.label}-${button.url}`} rel="noreferrer" target="_blank">
+              {button.label}
+            </a>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }

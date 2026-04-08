@@ -84,6 +84,7 @@ export default async function CoursePage({ searchParams }: CoursePageProps) {
 
       <div className="courseLayout">
         <VideoPlayer
+          buttons={selectedLesson.buttons}
           key={selectedLesson.id}
           subtopicId={selectedLesson.id}
           summary={selectedLesson.summary}
@@ -150,16 +151,12 @@ export default async function CoursePage({ searchParams }: CoursePageProps) {
               <strong>{lead.companies.join(", ")}</strong>
             </div>
             <div>
-              <span>Property types</span>
-              <strong>{lead.propertyTypes.join(", ")}</strong>
-            </div>
-            <div>
-              <span>Sales focus</span>
-              <strong>{lead.salesFocus}</strong>
-            </div>
-            <div>
               <span>Email</span>
               <strong>{lead.email}</strong>
+            </div>
+            <div>
+              <span>Mobile</span>
+              <strong>{lead.phone}</strong>
             </div>
           </div>
         </section>

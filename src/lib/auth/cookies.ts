@@ -6,6 +6,7 @@ import {
   LEAD_COOKIE_MAX_AGE,
   LEAD_COOKIE_NAME,
 } from "./constants";
+import { getAppSessionSecret } from "./secret";
 import { readSessionToken, writeSessionToken } from "./session";
 
 const baseCookieOptions = {
@@ -15,20 +16,8 @@ const baseCookieOptions = {
   path: "/",
 };
 
-function getSessionSecret() {
-  if (process.env.APP_SESSION_SECRET) {
-    return process.env.APP_SESSION_SECRET;
-  }
-
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("APP_SESSION_SECRET must be configured in production.");
-  }
-
-  return "local-development-session-secret";
-}
-
 export function createSessionCookieValue(subject: string, role: "lead" | "admin") {
-  return writeSessionToken({ subject, role }, getSessionSecret());
+  return writeSessionToken({ subject, role }, getAppSessionSecret());
 }
 
 export function parseSessionCookieValue(
@@ -39,7 +28,7 @@ export function parseSessionCookieValue(
     return null;
   }
 
-  const payload = readSessionToken(value, getSessionSecret());
+  const payload = readSessionToken(value, getAppSessionSecret());
   if (!payload || payload.role !== role) {
     return null;
   }

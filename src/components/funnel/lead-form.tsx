@@ -1,9 +1,10 @@
 'use client';
 
-import { useActionState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 
 import { initialActionState } from "@/app/action-state";
 import { submitLeadAction } from "@/app/actions";
+import { getLeadFormSteps } from "@/lib/funnel/lead-form-steps";
 
 type LeadFormProps = {
   ctaLabel: string;
@@ -19,75 +20,103 @@ type LeadFormProps = {
 
 export function LeadForm({ attribution, ctaLabel }: LeadFormProps) {
   const [state, formAction, pending] = useActionState(submitLeadAction, initialActionState);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const steps = useMemo(() => getLeadFormSteps(), []);
+  const currentStep = steps[currentStepIndex];
+  const isLastStep = currentStepIndex === steps.length - 1;
+
+  const stepError = state.fieldErrors?.[currentStep.name]?.[0];
+
+  function goNext() {
+    const currentField = formRef.current?.elements.namedItem(currentStep.name);
+    if (
+      currentField instanceof HTMLInputElement ||
+      currentField instanceof HTMLTextAreaElement
+    ) {
+      if (!currentField.reportValidity()) {
+        return;
+      }
+    }
+
+    setCurrentStepIndex((index) => Math.min(index + 1, steps.length - 1));
+  }
+
+  function goBack() {
+    setCurrentStepIndex((index) => Math.max(index - 1, 0));
+  }
 
   return (
-    <form className="panel formPanel" action={formAction}>
+    <form className="panel formPanel" action={formAction} ref={formRef}>
       <input name="utmSource" type="hidden" value={attribution.utmSource} />
       <input name="utmMedium" type="hidden" value={attribution.utmMedium} />
-      <input name="utmCampaign" type="hidden" value={attribution.utmCampaign} />
-      <input name="utmContent" type="hidden" value={attribution.utmContent} />
-      <input name="fbclid" type="hidden" value={attribution.fbclid} />
-      <input name="landingPath" type="hidden" value={attribution.landingPath} />
+        <input name="utmCampaign" type="hidden" value={attribution.utmCampaign} />
+        <input name="utmContent" type="hidden" value={attribution.utmContent} />
+        <input name="fbclid" type="hidden" value={attribution.fbclid} />
+        <input name="landingPath" type="hidden" value={attribution.landingPath} />
+        <input name="companies" type="hidden" value="" />
 
-      <div className="fieldGrid">
-        <label className="field">
-          <span>Full name</span>
-          <input name="fullName" placeholder="Jane Smith" required type="text" />
-          {state.fieldErrors?.fullName ? <small>{state.fieldErrors.fullName[0]}</small> : null}
-        </label>
-
-        <label className="field">
-          <span>Email</span>
-          <input name="email" placeholder="name@company.com" required type="email" />
-          {state.fieldErrors?.email ? <small>{state.fieldErrors.email[0]}</small> : null}
-        </label>
-
-        <label className="field">
-          <span>Phone number</span>
-          <input name="phone" placeholder="+1 555 555 5555" required type="tel" />
-          {state.fieldErrors?.phone ? <small>{state.fieldErrors.phone[0]}</small> : null}
-        </label>
-
-        <label className="field">
-          <span>Company or companies</span>
-          <textarea name="companies" placeholder="Your agency, developer, or team" required rows={3} />
-          {state.fieldErrors?.companies ? <small>{state.fieldErrors.companies[0]}</small> : null}
-        </label>
-
-        <label className="field">
-          <span>Property types</span>
-          <textarea
-            name="propertyTypes"
-            placeholder="Condos, villas, plots, rentals"
-            required
-            rows={3}
+      <div className="stepHeader">
+        <span className="stepIndicator">
+          Step {currentStepIndex + 1} of {steps.length}
+        </span>
+        <div className="stepProgressTrack">
+          <div
+            className="stepProgressFill"
+            style={{ width: `${((currentStepIndex + 1) / steps.length) * 100}%` }}
           />
-          {state.fieldErrors?.propertyTypes ? (
-            <small>{state.fieldErrors.propertyTypes[0]}</small>
-          ) : null}
-        </label>
+        </div>
+      </div>
 
-        <label className="field fieldWide">
-          <span>What are you selling?</span>
-          <textarea
-            name="salesFocus"
-            placeholder="Tell us what you sell and the kind of leads you want more of"
-            required
-            rows={4}
-          />
-          {state.fieldErrors?.salesFocus ? <small>{state.fieldErrors.salesFocus[0]}</small> : null}
-        </label>
+      <div className="stepFields">
+        {steps.map((step, index) => {
+          const isActive = index === currentStepIndex;
+
+          return (
+            <label className={`field wizardField ${isActive ? "activeWizardField" : "hiddenWizardField"}`} key={step.name}>
+              <span>{step.label}</span>
+              {step.inputType === "textarea" ? (
+                <textarea
+                  defaultValue=""
+                  name={step.name}
+                  placeholder={step.placeholder}
+                  required
+                  rows={step.rows ?? 3}
+                />
+              ) : (
+                <input defaultValue="" name={step.name} placeholder={step.placeholder} required type={step.inputType} />
+              )}
+            </label>
+          );
+        })}
+
+        {stepError ? <small className="wizardError">{stepError}</small> : null}
       </div>
 
       {state.message ? <p className={`formMessage ${state.status}`}>{state.message}</p> : null}
 
       <div className="formFooter">
         <p className="helperText">
-          You will get instant access now, and later you can come back with the same email.
+          Pag-submit mo, may instant access ka agad. Puwede ka ring bumalik later gamit ang same email.
         </p>
-        <button className="buttonPrimary" disabled={pending} type="submit">
-          {pending ? "Unlocking..." : ctaLabel}
-        </button>
+
+        <div className="wizardActions">
+          {currentStepIndex > 0 ? (
+            <button className="buttonSecondary" onClick={goBack} type="button">
+              Back
+            </button>
+          ) : null}
+
+          {isLastStep ? (
+            <button className="buttonPrimary" disabled={pending} type="submit">
+              {pending ? "Ina-unlock..." : ctaLabel}
+            </button>
+          ) : (
+            <button className="buttonPrimary" onClick={goNext} type="button">
+              Next
+            </button>
+          )}
+        </div>
       </div>
     </form>
   );

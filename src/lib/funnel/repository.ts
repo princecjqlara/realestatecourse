@@ -4,6 +4,9 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 
 import { defaultDatabase } from "./default-course";
+import type { CoursePreviewMediaType } from "./course-preview-media";
+import { sanitizeStoredSubtopicCallToAction } from "./subtopic-cta";
+import { sanitizeStoredSubtopicButtons, type SubtopicButton } from "./subtopic-buttons";
 import type {
   AuthEventRecord,
   FunnelDatabase,
@@ -20,6 +23,37 @@ const dataFile = path.join(dataDirectory, "funnel-db.json");
 
 function cloneDefaultDatabase(): FunnelDatabase {
   return JSON.parse(JSON.stringify(defaultDatabase)) as FunnelDatabase;
+}
+
+function normalizeLocalDatabase(database: FunnelDatabase) {
+  return {
+    ...database,
+    course: {
+      ...defaultDatabase.course,
+      ...database.course,
+      previewMediaType:
+        database.course?.previewMediaType === "video" ? "video" : defaultDatabase.course.previewMediaType,
+      previewThumbnailUrl: database.course?.previewThumbnailUrl || defaultDatabase.course.previewThumbnailUrl,
+      previewVideoUrl: database.course?.previewVideoUrl || defaultDatabase.course.previewVideoUrl,
+    },
+    subtopics: database.subtopics.map((subtopic) => {
+      const legacyCta = sanitizeStoredSubtopicCallToAction({
+        ctaLabel: (subtopic as { ctaLabel?: string | null }).ctaLabel ?? null,
+        ctaUrl: (subtopic as { ctaUrl?: string | null }).ctaUrl ?? null,
+      });
+
+      return {
+        ...subtopic,
+        buttons:
+          Array.isArray((subtopic as { buttons?: SubtopicButton[] }).buttons) &&
+          (subtopic as { buttons?: SubtopicButton[] }).buttons?.length
+            ? sanitizeStoredSubtopicButtons((subtopic as { buttons?: SubtopicButton[] }).buttons ?? [])
+            : legacyCta.ctaLabel && legacyCta.ctaUrl
+              ? [{ label: legacyCta.ctaLabel, url: legacyCta.ctaUrl }]
+              : [],
+      };
+    }),
+  } satisfies FunnelDatabase;
 }
 
 function isSupabaseDataStoreConfigured() {
@@ -66,7 +100,7 @@ async function readDatabase() {
   await ensureDatabaseFile();
 
   const raw = await readFile(dataFile, "utf8");
-  return JSON.parse(raw) as FunnelDatabase;
+  return normalizeLocalDatabase(JSON.parse(raw) as FunnelDatabase);
 }
 
 async function saveDatabase(database: FunnelDatabase) {
@@ -129,7 +163,44 @@ function mapTopicRow(row: Record<string, unknown>): TopicRecord {
   };
 }
 
+function mapCourseSettingsRow(row: Record<string, unknown>) {
+  return {
+    ...defaultDatabase.course,
+    title: row.title ? String(row.title) : defaultDatabase.course.title,
+    subtitle: row.subtitle ? String(row.subtitle) : defaultDatabase.course.subtitle,
+    heroTitle: row.hero_title ? String(row.hero_title) : defaultDatabase.course.heroTitle,
+    heroSummary: row.hero_summary ? String(row.hero_summary) : defaultDatabase.course.heroSummary,
+    ctaLabel: row.cta_label ? String(row.cta_label) : defaultDatabase.course.ctaLabel,
+    previewMediaType:
+      row.preview_media_type === "video" ? ("video" as CoursePreviewMediaType) : ("image" as CoursePreviewMediaType),
+    previewThumbnailUrl: row.preview_thumbnail_url
+      ? String(row.preview_thumbnail_url)
+      : defaultDatabase.course.previewThumbnailUrl,
+    previewVideoUrl: row.preview_video_url
+      ? String(row.preview_video_url)
+      : defaultDatabase.course.previewVideoUrl,
+  };
+}
+
 function mapSubtopicRow(row: Record<string, unknown>): SubtopicRecord {
+  const legacyCta = sanitizeStoredSubtopicCallToAction({
+    ctaLabel: row.cta_label ? String(row.cta_label) : null,
+    ctaUrl: row.cta_url ? String(row.cta_url) : null,
+  });
+  const storedButtons = Array.isArray(row.buttons)
+    ? sanitizeStoredSubtopicButtons(
+        row.buttons.map((button) => ({
+          label: button && typeof button === "object" && "label" in button ? String(button.label) : "",
+          url: button && typeof button === "object" && "url" in button ? String(button.url) : "",
+        })),
+      )
+    : [];
+  const buttons = storedButtons.length
+    ? storedButtons
+    : legacyCta.ctaLabel && legacyCta.ctaUrl
+      ? [{ label: legacyCta.ctaLabel, url: legacyCta.ctaUrl }]
+      : [];
+
   return {
     id: String(row.id),
     topicId: String(row.topic_id),
@@ -138,6 +209,7 @@ function mapSubtopicRow(row: Record<string, unknown>): SubtopicRecord {
     position: Number(row.position),
     durationSeconds: Number(row.duration_seconds),
     videoUrl: String(row.video_url),
+    buttons,
   };
 }
 
@@ -196,10 +268,15 @@ async function readSupabaseCourseSnapshot() {
     return null;
   }
 
-  const [{ data: topicRows, error: topicsError }, { data: subtopicRows, error: subtopicsError }] =
+  const [
+    { data: topicRows, error: topicsError },
+    { data: subtopicRows, error: subtopicsError },
+    { data: courseSettingsRow, error: courseSettingsError },
+  ] =
     await Promise.all([
       client.from("topics").select("*").order("position", { ascending: true }),
       client.from("subtopics").select("*").order("position", { ascending: true }),
+      client.from("course_settings").select("*").limit(1).maybeSingle(),
     ]);
 
   if (topicsError) {
@@ -209,6 +286,9 @@ async function readSupabaseCourseSnapshot() {
   if (subtopicsError) {
     throw new Error(subtopicsError.message);
   }
+  if (courseSettingsError) {
+    throw new Error(courseSettingsError.message);
+  }
 
   const topics = topicRows?.length ? topicRows.map((row) => mapTopicRow(row)) : defaultDatabase.topics;
   const subtopics = subtopicRows?.length
@@ -217,6 +297,7 @@ async function readSupabaseCourseSnapshot() {
 
   return buildCourseSnapshot({
     ...cloneDefaultDatabase(),
+    course: courseSettingsRow ? mapCourseSettingsRow(courseSettingsRow) : defaultDatabase.course,
     topics,
     subtopics,
   });
@@ -414,15 +495,16 @@ export async function getSubtopicById(subtopicId: string) {
 export async function getAdminSnapshot() {
   const client = getSupabaseServiceClient();
   if (client) {
-    const [leadResult, authResult, watchResult, topicResult, subtopicResult] = await Promise.all([
+    const [leadResult, authResult, watchResult, topicResult, subtopicResult, courseSettingsResult] = await Promise.all([
       client.from("leads").select("*"),
       client.from("auth_events").select("*"),
       client.from("watch_events").select("*"),
       client.from("topics").select("*"),
       client.from("subtopics").select("*"),
+      client.from("course_settings").select("*").limit(1).maybeSingle(),
     ]);
 
-    for (const result of [leadResult, authResult, watchResult, topicResult, subtopicResult]) {
+    for (const result of [leadResult, authResult, watchResult, topicResult, subtopicResult, courseSettingsResult]) {
       if (result.error) {
         throw new Error(result.error.message);
       }
@@ -430,6 +512,7 @@ export async function getAdminSnapshot() {
 
     return {
       ...cloneDefaultDatabase(),
+      course: courseSettingsResult.data ? mapCourseSettingsRow(courseSettingsResult.data) : defaultDatabase.course,
       leads: (leadResult.data ?? []).map((row) => mapLeadRow(row)),
       authEvents: (authResult.data ?? []).map((row) => mapAuthEventRow(row)),
       watchEvents: (watchResult.data ?? []).map((row) => mapWatchEventRow(row)),
@@ -487,6 +570,7 @@ export async function addSubtopic(input: {
   summary: string;
   durationSeconds: number;
   videoUrl: string;
+  buttons: SubtopicButton[];
 }) {
   const client = getSupabaseServiceClient();
   if (client) {
@@ -508,6 +592,9 @@ export async function addSubtopic(input: {
       summary: input.summary,
       duration_seconds: input.durationSeconds,
       video_url: input.videoUrl,
+      cta_label: input.buttons[0]?.label ?? null,
+      cta_url: input.buttons[0]?.url ?? null,
+      buttons: input.buttons,
       position: (lastSubtopic?.position ?? 0) + 1,
     });
 
@@ -529,9 +616,157 @@ export async function addSubtopic(input: {
     summary: input.summary,
     durationSeconds: input.durationSeconds,
     videoUrl: input.videoUrl,
+    buttons: input.buttons,
     position: nextPosition,
   };
 
   database.subtopics.push(subtopic);
+  await saveDatabase(database);
+}
+
+export async function updateTopic(input: { id: string; title: string; summary: string }) {
+  const client = getSupabaseServiceClient();
+  if (client) {
+    const { error } = await client.from("topics").update({ title: input.title, summary: input.summary }).eq("id", input.id);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const database = await readDatabase();
+  const topic = database.topics.find((item) => item.id === input.id);
+  if (!topic) throw new Error("Topic not found.");
+  topic.title = input.title;
+  topic.summary = input.summary;
+  await saveDatabase(database);
+}
+
+export async function deleteTopic(topicId: string) {
+  const client = getSupabaseServiceClient();
+  if (client) {
+    const { error } = await client.from("topics").delete().eq("id", topicId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const database = await readDatabase();
+  database.topics = database.topics.filter((topic) => topic.id !== topicId);
+  database.subtopics = database.subtopics.filter((subtopic) => subtopic.topicId !== topicId);
+  await saveDatabase(database);
+}
+
+export async function updateSubtopic(input: {
+  id: string;
+  topicId: string;
+  title: string;
+  summary: string;
+  durationSeconds: number;
+  videoUrl: string;
+  buttons: SubtopicButton[];
+}) {
+  const client = getSupabaseServiceClient();
+  if (client) {
+    const { data: currentSubtopic, error: currentReadError } = await client
+      .from("subtopics")
+      .select("topic_id, position")
+      .eq("id", input.id)
+      .maybeSingle();
+
+    if (currentReadError) {
+      throw new Error(currentReadError.message);
+    }
+
+    let nextPosition = currentSubtopic?.position ?? 1;
+
+    if (currentSubtopic?.topic_id !== input.topicId) {
+      const { data: lastSubtopic, error: lastSubtopicError } = await client
+        .from("subtopics")
+        .select("position")
+        .eq("topic_id", input.topicId)
+        .order("position", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (lastSubtopicError) {
+        throw new Error(lastSubtopicError.message);
+      }
+
+      nextPosition = (lastSubtopic?.position ?? 0) + 1;
+    }
+
+    const { error } = await client
+      .from("subtopics")
+      .update({
+        topic_id: input.topicId,
+        title: input.title,
+        summary: input.summary,
+        duration_seconds: input.durationSeconds,
+        video_url: input.videoUrl,
+        cta_label: input.buttons[0]?.label ?? null,
+        cta_url: input.buttons[0]?.url ?? null,
+        buttons: input.buttons,
+        position: nextPosition,
+      })
+      .eq("id", input.id);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const database = await readDatabase();
+  const subtopic = database.subtopics.find((item) => item.id === input.id);
+  if (!subtopic) throw new Error("Subtopic not found.");
+
+  if (subtopic.topicId !== input.topicId) {
+    const nextPosition =
+      Math.max(0, ...database.subtopics.filter((item) => item.topicId === input.topicId).map((item) => item.position)) + 1;
+    subtopic.position = nextPosition;
+  }
+
+  subtopic.topicId = input.topicId;
+  subtopic.title = input.title;
+  subtopic.summary = input.summary;
+  subtopic.durationSeconds = input.durationSeconds;
+  subtopic.videoUrl = input.videoUrl;
+  subtopic.buttons = input.buttons;
+  await saveDatabase(database);
+}
+
+export async function deleteSubtopic(subtopicId: string) {
+  const client = getSupabaseServiceClient();
+  if (client) {
+    const { error } = await client.from("subtopics").delete().eq("id", subtopicId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const database = await readDatabase();
+  database.subtopics = database.subtopics.filter((subtopic) => subtopic.id !== subtopicId);
+  await saveDatabase(database);
+}
+
+export async function updateCoursePreview(input: {
+  previewMediaType: CoursePreviewMediaType;
+  previewThumbnailUrl: string;
+  previewVideoUrl: string;
+}) {
+  const client = getSupabaseServiceClient();
+  if (client) {
+    const { data } = await client.from("course_settings").select("id").limit(1).maybeSingle();
+    const payload = {
+      preview_media_type: input.previewMediaType,
+      preview_thumbnail_url: input.previewThumbnailUrl,
+      preview_video_url: input.previewVideoUrl,
+    };
+    const query = data?.id
+      ? client.from("course_settings").update(payload).eq("id", data.id)
+      : client.from("course_settings").insert({ id: defaultDatabase.course.id, ...payload });
+    const { error } = await query;
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const database = await readDatabase();
+  database.course.previewMediaType = input.previewMediaType;
+  database.course.previewThumbnailUrl = input.previewThumbnailUrl;
+  database.course.previewVideoUrl = input.previewVideoUrl;
   await saveDatabase(database);
 }

@@ -26,6 +26,19 @@ create table if not exists topics (
   created_at timestamptz not null default now()
 );
 
+create table if not exists course_settings (
+  id text primary key,
+  title text,
+  subtitle text,
+  hero_title text,
+  hero_summary text,
+  cta_label text,
+  preview_media_type text,
+  preview_thumbnail_url text,
+  preview_video_url text,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists subtopics (
   id uuid primary key default gen_random_uuid(),
   topic_id uuid not null references topics(id) on delete cascade,
@@ -34,8 +47,15 @@ create table if not exists subtopics (
   position integer not null,
   duration_seconds integer not null,
   video_url text not null,
+  cta_label text,
+  cta_url text,
+  buttons jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now()
 );
+
+alter table if exists subtopics add column if not exists cta_label text;
+alter table if exists subtopics add column if not exists cta_url text;
+alter table if exists subtopics add column if not exists buttons jsonb not null default '[]'::jsonb;
 
 create table if not exists auth_events (
   id uuid primary key default gen_random_uuid(),
